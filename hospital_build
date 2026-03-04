@@ -1,0 +1,375 @@
+https://browserbotics.com/sandbox
+import browserbotics as bb
+import math
+import time
+
+# ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+def add_hospital_bed(bx, by, bz=0):
+    bb.createBody('box', halfExtent=[0.45,1.0,0.2],   position=[bx,by,bz+0.2],      color='#AAAAAA', mass=0)
+    bb.createBody('box', halfExtent=[0.42,0.9,0.06],  position=[bx,by,bz+0.46],     color='white',   mass=0)
+    bb.createBody('box', halfExtent=[0.28,0.15,0.04], position=[bx,by+0.8,bz+0.54], color='#FFFDE7', mass=0)
+    bb.createBody('box', halfExtent=[0.45,0.04,0.3],  position=[bx,by+1.0,bz+0.5],  color='#8B6914', mass=0)
+    bb.createBody('box', halfExtent=[0.45,0.04,0.2],  position=[bx,by-0.5,bz+0.4],  color='#8B6914', mass=0)
+    for lx,ly in [(-0.38,by-0.95),(0.38,by-0.95),(-0.38,by+0.95),(0.38,by+0.95)]:
+        bb.createBody('box', halfExtent=[0.03,0.03,0.1], position=[bx+lx,ly,bz+0.1], color='#888888', mass=0)
+
+
+def add_patient(bx, by, bz=0, skin='#FDBCB4', gown='#E8B4B8'):
+    phz = bz + 0.52
+    bb.createBody('sphere', radius=0.12,              position=[bx,   by+0.82,phz+0.20], color=skin, mass=0)
+    bb.createBody('box', halfExtent=[0.18,0.35,0.12], position=[bx,   by+0.30,phz+0.12], color=gown, mass=0)
+    bb.createBody('box', halfExtent=[0.05,0.22,0.06], position=[bx-0.25,by+0.35,phz+0.18], color=skin, mass=0)
+    bb.createBody('box', halfExtent=[0.05,0.22,0.06], position=[bx+0.25,by+0.35,phz+0.18], color=skin, mass=0)
+    bb.createBody('box', halfExtent=[0.09,0.22,0.08], position=[bx-0.12,by-0.25,phz+0.08], color=gown, mass=0)
+    bb.createBody('box', halfExtent=[0.09,0.22,0.08], position=[bx+0.12,by-0.25,phz+0.08], color=gown, mass=0)
+
+
+def add_arm_robot(rx, ry, rz=0, facing_x=1.0):
+    """Franka-style 3-link arm robot with black gripper."""
+    fx = facing_x
+    # Base
+    bb.createBody('box',    halfExtent=[0.14,0.14,0.06], position=[rx,ry,rz+0.06],             color='#37474F', mass=0)
+    bb.createBody('sphere', radius=0.10,                 position=[rx,ry,rz+0.18],             color='#ECEFF1', mass=0)
+    # Link 1 — vertical column
+    bb.createBody('box',    halfExtent=[0.06,0.06,0.18], position=[rx,ry,rz+0.40],             color='#ECEFF1', mass=0)
+    bb.createBody('sphere', radius=0.07,                 position=[rx,ry,rz+0.60],             color='#B0BEC5', mass=0)
+    # Link 2 — diagonal up-out
+    bb.createBody('box',    halfExtent=[0.05,0.05,0.16], position=[rx+fx*0.15,ry,rz+0.72],    color='#ECEFF1', mass=0)
+    bb.createBody('sphere', radius=0.06,                 position=[rx+fx*0.28,ry,rz+0.82],    color='#B0BEC5', mass=0)
+    # Link 3 — forearm
+    bb.createBody('box',    halfExtent=[0.04,0.04,0.14], position=[rx+fx*0.40,ry,rz+0.72],    color='#ECEFF1', mass=0)
+    bb.createBody('sphere', radius=0.05,                 position=[rx+fx*0.52,ry,rz+0.66],    color='#B0BEC5', mass=0)
+    # Wrist block
+    bb.createBody('box',    halfExtent=[0.035,0.035,0.07],position=[rx+fx*0.60,ry,rz+0.60],   color='#37474F', mass=0)
+    # Black gripper palm
+    bb.createBody('box',    halfExtent=[0.05,0.04,0.05], position=[rx+fx*0.68,ry,rz+0.52],    color='#212121', mass=0)
+    # Two gripper fingers
+    bb.createBody('box',    halfExtent=[0.012,0.015,0.06],position=[rx+fx*0.72,ry-0.03,rz+0.44], color='#37474F', mass=0)
+    bb.createBody('box',    halfExtent=[0.012,0.015,0.06],position=[rx+fx*0.72,ry+0.03,rz+0.44], color='#37474F', mass=0)
+    # Blue status light
+    bb.createBody('sphere', radius=0.018, position=[rx+fx*0.64,ry,rz+0.68], color='#29B6F6', mass=0)
+
+
+def add_iv_stand(sx, sy):
+    bb.createBody('box',    halfExtent=[0.015,0.015,0.8], position=[sx,sy,0.8],  color='#CCCCCC', mass=0)
+    bb.createBody('box',    halfExtent=[0.07,0.025,0.1],  position=[sx,sy,1.65], color='#80D8FF', mass=0)
+    bb.createBody('box',    halfExtent=[0.2,0.2,0.01],    position=[sx,sy,0.02], color='#999999', mass=0)
+
+
+def add_monitor(mx, my):
+    bb.createBody('box', halfExtent=[0.25,0.2,0.35],  position=[mx,my,0.35],     color='#A0522D', mass=0)
+    bb.createBody('box', halfExtent=[0.28,0.22,0.02], position=[mx,my,0.72],     color='#C19A6B', mass=0)
+    bb.createBody('box', halfExtent=[0.02,0.02,0.18], position=[mx,my,0.92],     color='#333333', mass=0)
+    bb.createBody('box', halfExtent=[0.16,0.03,0.11], position=[mx,my+0.03,1.11],color='#111111', mass=0)
+    bb.createBody('box', halfExtent=[0.13,0.01,0.09], position=[mx,my+0.01,1.11],color='#00E676', mass=0)
+
+
+def add_monstera_plant(px, py):
+    pz=0.0
+    bb.createBody('box',    halfExtent=[0.18,0.18,0.20], position=[px,py,pz+0.20], color='#546E7A', mass=0)
+    bb.createBody('box',    halfExtent=[0.20,0.20,0.02], position=[px,py,pz+0.42], color='#455A64', mass=0)
+    bb.createBody('box',    halfExtent=[0.16,0.16,0.03], position=[px,py,pz+0.43], color='#3E2723', mass=0)
+    bb.createBody('box',    halfExtent=[0.025,0.025,0.35],position=[px,py,pz+0.75],color='#2E7D32', mass=0)
+    lc='#388E3C'; ll='#43A047'
+    bb.createBody('box', halfExtent=[0.18,0.28,0.025], position=[px-0.20,py+0.10,pz+1.05], color=lc, mass=0)
+    bb.createBody('box', halfExtent=[0.18,0.28,0.025], position=[px+0.20,py+0.05,pz+1.10], color=lc, mass=0)
+    bb.createBody('box', halfExtent=[0.14,0.22,0.025], position=[px+0.02,py-0.15,pz+0.90], color=lc, mass=0)
+    bb.createBody('box', halfExtent=[0.12,0.18,0.020], position=[px-0.18,py-0.08,pz+0.72], color=lc, mass=0)
+    bb.createBody('box', halfExtent=[0.10,0.16,0.022], position=[px,py+0.02,pz+1.25],       color=ll, mass=0)
+    bb.createBody('box', halfExtent=[0.28,0.28,0.03],  position=[px,py,pz+0.03], color='#8D6E63', mass=0)
+    for lx2,ly2 in [(-0.22,-0.22),(0.22,-0.22),(-0.22,0.22),(0.22,0.22)]:
+        bb.createBody('box', halfExtent=[0.025,0.025,0.025], position=[px+lx2,py+ly2,pz+0.025], color='#795548', mass=0)
+
+
+def build_instrument_table(tx, ty, tz=0):
+    S='#CFD8DC'; D='#90A4AE'; W='#ECEFF1'
+    tt=tz+0.85
+    for lx,ly in [(-0.28,-0.18),(0.28,-0.18),(-0.28,0.18),(0.28,0.18)]:
+        bb.createBody('box', halfExtent=[0.015,0.015,0.42], position=[tx+lx,ty+ly,tz+0.42], color=S, mass=0)
+    bb.createBody('box', halfExtent=[0.30,0.20,0.015], position=[tx,ty,tt], color=S, mass=0)
+    iz=tt+0.022
+    bb.createBody('box', halfExtent=[0.10,0.008,0.006], position=[tx-0.14,ty-0.10,iz], color='#B0BEC5', mass=0)
+    bb.createBody('box', halfExtent=[0.09,0.005,0.005], position=[tx-0.12,ty+0.00,iz], color=S, mass=0)
+    bb.createBody('box', halfExtent=[0.09,0.005,0.005], position=[tx-0.12,ty+0.03,iz], color=S, mass=0)
+    bb.createBody('box', halfExtent=[0.08,0.007,0.006], position=[tx+0.06,ty-0.08,iz], color=D, mass=0)
+    bb.createBody('box', halfExtent=[0.04,0.04,0.005],  position=[tx+0.20,ty-0.06,iz], color='#FAFAFA', mass=0)
+    bb.createBody('box', halfExtent=[0.022,0.022,0.025],position=[tx+0.22,ty+0.10,iz+0.025], color='#B3E5FC', mass=0)
+    bb.createBody('box', halfExtent=[0.012,0.012,0.44], position=[tx,ty,tz+0.44], color=S, mass=0)
+    bb.createBody('box', halfExtent=[0.28,0.012,0.012], position=[tx,ty,tz+0.012], color=D, mass=0)
+    bb.createBody('box', halfExtent=[0.012,0.18,0.012], position=[tx,ty,tz+0.012], color=D, mass=0)
+
+
+# ─── DA VINCI ─────────────────────────────────────────────────────────────────
+def build_davinci_robot(px=0, py=1.5, pz=0):
+    CW='#E8EAF6'; CG='#B0BEC5'; CD='#37474F'; CB='#29B6F6'; CS='#CFD8DC'
+    bb.createBody('box',    halfExtent=[0.28,0.28,0.06], position=[px,py,pz+0.06], color=CD, mass=0)
+    bb.createBody('box',    halfExtent=[0.18,0.18,0.18], position=[px,py,pz+0.24], color=CW, mass=0)
+    bb.createBody('box',    halfExtent=[0.14,0.14,0.20], position=[px,py,pz+0.62], color=CW, mass=0)
+    bb.createBody('box',    halfExtent=[0.12,0.12,0.18], position=[px,py,pz+1.00], color=CG, mass=0)
+    bb.createBody('box',    halfExtent=[0.22,0.22,0.10], position=[px,py,pz+1.28], color=CW, mass=0)
+    for wx,wy in [(-0.24,-0.24),(0.24,-0.24),(-0.24,0.24),(0.24,0.24)]:
+        bb.createBody('sphere', radius=0.055, position=[px+wx,py+wy,pz+0.055], color=CD, mass=0)
+    def dv_arm(ax,ay,az,dx,dy):
+        bb.createBody('box',    halfExtent=[0.07,0.07,0.07],   position=[ax,ay,az], color=CG, mass=0)
+        bb.createBody('box',    halfExtent=[0.04,0.04,0.18],   position=[ax+dx*0.22,ay+dy*0.22,az-0.10], color=CW, mass=0)
+        bb.createBody('sphere', radius=0.055,                  position=[ax+dx*0.38,ay+dy*0.38,az-0.30], color=CG, mass=0)
+        bb.createBody('box',    halfExtent=[0.032,0.032,0.20], position=[ax+dx*0.55,ay+dy*0.55,az-0.54], color=CS, mass=0)
+        bb.createBody('sphere', radius=0.040,                  position=[ax+dx*0.65,ay+dy*0.65,az-0.76], color=CG, mass=0)
+        ix=ax+dx*0.72; iy=ay+dy*0.72; iz=az-0.92
+        bb.createBody('box',    halfExtent=[0.055,0.038,0.09], position=[ix,iy,iz],       color=CW, mass=0)
+        bb.createBody('box',    halfExtent=[0.060,0.043,0.022],position=[ix,iy,iz+0.045], color=CB, mass=0)
+        bb.createBody('box',    halfExtent=[0.007,0.007,0.095],position=[ax+dx*0.74,ay+dy*0.74,az-1.08], color=CD, mass=0)
+    hub_z=pz+1.28
+    dv_arm(px+0.18,py,hub_z, 0.58, 0.08)
+    dv_arm(px-0.18,py,hub_z,-0.58, 0.08)
+    dv_arm(px,     py,hub_z, 0.04,-0.12)
+    dv_arm(px+0.14,py,hub_z, 0.42,-0.40)
+    bb.createBody('box', halfExtent=[0.65,0.06,0.04], position=[px,py,pz+2.32],     color=CG, mass=0)
+    bb.createBody('box', halfExtent=[0.04,0.04,0.50], position=[px,py,pz+1.84],     color=CG, mass=0)
+    bb.createBody('box', halfExtent=[0.24,0.24,0.04], position=[px+0.44,py,pz+2.32],color='#ECEFF1', mass=0)
+    for lx2 in [-0.12,0.0,0.12]:
+        for ly2 in [-0.09,0.09]:
+            bb.createBody('sphere', radius=0.022, position=[px+0.44+lx2,py+ly2,pz+2.29], color='#E3F2FD', mass=0)
+
+
+# ─── SURGERY ROOM (separate walled enclosure in back-right corner) ─────────────
+def build_surgery_room():
+    # Surgery room occupies x: 4.0 to 7.8,  y: 4.0 to 7.8  (back-right corner)
+    SX1=4.0; SX2=7.8; SY1=4.0; SY2=7.8
+    SWH=1.2; SWT=0.06
+    cx=(SX1+SX2)/2   # 5.9
+    cy=(SY1+SY2)/2   # 5.9
+    hw=(SX2-SX1)/2   # 1.9
+    hd=(SY2-SY1)/2   # 1.9
+
+    # Left divider wall (full height, no door)
+    bb.createBody('box', halfExtent=[SWT,hd,SWH], position=[SX1,cy,SWH], color='#ECEFF1', mass=0)
+
+    # Front wall of surgery room — with a sliding door opening centred
+    DW2=0.50
+    side_w = hw - DW2
+    bb.createBody('box', halfExtent=[side_w,SWT,SWH], position=[SX1+side_w, SY1, SWH], color='#ECEFF1', mass=0)
+    bb.createBody('box', halfExtent=[side_w,SWT,SWH], position=[SX2-side_w, SY1, SWH], color='#ECEFF1', mass=0)
+    top_h = SWH - 0.50
+    bb.createBody('box', halfExtent=[DW2,SWT,top_h],  position=[cx, SY1, 1.0+top_h],   color='#ECEFF1', mass=0)
+
+    # Door frame
+    FC='#3E2723'; FH=0.04
+    bb.createBody('box', halfExtent=[FH,FH,0.5],     position=[cx-DW2,SY1,0.5], color=FC, mass=0)
+    bb.createBody('box', halfExtent=[FH,FH,0.5],     position=[cx+DW2,SY1,0.5], color=FC, mass=0)
+    bb.createBody('box', halfExtent=[DW2+FH,FH,FH],  position=[cx,SY1,1.0],     color=FC, mass=0)
+
+    # Red "SURGERY" sign above door
+    bb.createBody('box', halfExtent=[0.40,0.04,0.10], position=[cx,SY1-0.05,1.18], color='#F44336', mass=0)
+    # White cross on sign
+    bb.createBody('box', halfExtent=[0.06,0.05,0.07], position=[cx,SY1-0.09,1.18], color='white', mass=0)
+    bb.createBody('box', halfExtent=[0.14,0.05,0.03], position=[cx,SY1-0.09,1.18], color='white', mass=0)
+
+    # Ceiling surgical lamp
+    bb.createBody('box',    halfExtent=[0.30,0.30,0.04], position=[cx,cy,2.35],     color='#ECEFF1', mass=0)
+    for lx3 in [-0.15,0.0,0.15]:
+        for ly3 in [-0.10,0.10]:
+            bb.createBody('sphere', radius=0.025, position=[cx+lx3,cy+ly3,2.31], color='#FFFDE7', mass=0)
+    bb.createBody('box', halfExtent=[0.04,0.04,0.22], position=[cx,cy,2.13], color='#B0BEC5', mass=0)
+
+    # Surgery bed + patient (blue surgical gown)
+    add_hospital_bed(cx, cy, bz=0)
+    add_patient(cx, cy, skin='#FDBCB4', gown='#B3E5FC')
+
+    # Instrument tray
+    build_instrument_table(tx=cx+1.2, ty=cy, tz=0)
+
+    # Arm robot for surgery
+    add_arm_robot(rx=cx-1.1, ry=cy, rz=0, facing_x=1.0)
+
+    # Da Vinci over surgery bed
+    build_davinci_robot(px=cx, py=cy, pz=0)
+
+    # IV stand
+    add_iv_stand(cx+0.9, cy-0.5)
+
+    # Monitor
+    add_monitor(cx-1.5, cy-0.3)
+
+    # Red cross on left wall inside
+    bb.createBody('box', halfExtent=[0.06,0.03,0.20], position=[SX1+0.07,cy,1.1], color='#F44336', mass=0)
+    bb.createBody('box', halfExtent=[0.20,0.03,0.06], position=[SX1+0.07,cy,1.1], color='#F44336', mass=0)
+
+
+# ─── SETUP MAIN WARD ──────────────────────────────────────────────────────────
+def setup_hospital_room():
+    bb.addGroundPlane()
+
+    W=8; WH=1.2; WT=0.05
+    # Outer walls
+    bb.createBody('box', halfExtent=[WT,W,WH], position=[-W,0,WH], color='white', mass=0)
+    bb.createBody('box', halfExtent=[WT,W,WH], position=[ W,0,WH], color='white', mass=0)
+    bb.createBody('box', halfExtent=[W,WT,WH], position=[ 0,W,WH], color='white', mass=0)
+
+    # Front wall with door opening
+    DW=0.5; DH=1.0; SW=W-DW
+    bb.createBody('box', halfExtent=[SW,WT,WH], position=[-(DW+SW),-W,WH], color='white', mass=0)
+    bb.createBody('box', halfExtent=[SW,WT,WH], position=[ (DW+SW),-W,WH], color='white', mass=0)
+    lh=WH-DH/2
+    bb.createBody('box', halfExtent=[DW,WT,lh], position=[0,-W,DH+lh], color='white', mass=0)
+    FC='#3E2723'; FH=0.05
+    bb.createBody('box', halfExtent=[FH,FH,DH/2],   position=[-DW,-W,DH/2], color=FC, mass=0)
+    bb.createBody('box', halfExtent=[FH,FH,DH/2],   position=[ DW,-W,DH/2], color=FC, mass=0)
+    bb.createBody('box', halfExtent=[DW+FH,FH,FH],  position=[0,-W,DH],     color=FC, mass=0)
+
+    # ── 5 beds in main ward ───────────────────────────────────────────────────
+    #   left column x=-5.5, -3.0    right column x=0.0, 2.5
+    bed_configs = [
+        ( 0.0, 1.5),   # bed A  (original centre)
+        (-3.0, 1.5),   # bed B
+        (-5.5, 1.5),   # bed C
+        (-5.5, 5.0),   # bed D  (new extra — back-left)
+        (-3.0, 5.0),   # bed E  (new extra — back-centre-left)
+    ]
+    gown_colors = ['#E8B4B8','#B2EBF2','#C8E6C9','#FFE0B2','#E1BEE7']
+    for i,(bx,by) in enumerate(bed_configs):
+        add_hospital_bed(bx, by)
+        add_patient(bx, by, gown=gown_colors[i])
+        add_iv_stand(bx+0.85, by+0.9)
+        add_monitor(bx-1.0, by+0.5)
+
+    # ── Arm robots beside each bed (replacing doctors) ─────────────────────
+    robot_positions = [
+        ( 1.0, 1.5, -1.0),   # beside bed A, reaching left
+        (-2.0, 1.5, -1.0),   # beside bed B
+        (-4.5, 1.5, -1.0),   # beside bed C
+        (-4.5, 5.0, -1.0),   # beside bed D
+        (-2.0, 5.0, -1.0),   # beside bed E
+    ]
+    for rx,ry,fx in robot_positions:
+        add_arm_robot(rx=rx, ry=ry, rz=0, facing_x=fx)
+
+    # ── Da Vinci surgical robot over bed A ────────────────────────────────────
+    build_davinci_robot(px=0, py=1.5, pz=0)
+    build_instrument_table(tx=0.9, ty=1.0, tz=0)
+
+    # ── Nursing station ───────────────────────────────────────────────────────
+    bb.createBody('box', halfExtent=[0.8,0.3,0.5],   position=[4.5,0.5,0.5],  color='#ECEFF1', mass=0)
+    bb.createBody('box', halfExtent=[0.85,0.32,0.02], position=[4.5,0.5,1.02],color='#CFD8DC', mass=0)
+    bb.createBody('box', halfExtent=[0.18,0.03,0.13], position=[4.5,0.22,1.18],color='#212121', mass=0)
+    bb.createBody('box', halfExtent=[0.14,0.01,0.10], position=[4.5,0.20,1.18],color='#00E5FF', mass=0)
+    bb.createBody('box', halfExtent=[0.16,0.12,0.02], position=[4.5,0.35,1.04],color='#37474F', mass=0)
+
+    # ── Medicine cabinet ──────────────────────────────────────────────────────
+    bb.createBody('box', halfExtent=[0.4,0.15,0.5],  position=[-7.0,3.0,0.8],  color='white',   mass=0)
+    bb.createBody('box', halfExtent=[0.4,0.15,0.02], position=[-7.0,3.0,1.32], color='#DDDDDD', mass=0)
+
+    # ── Windows ───────────────────────────────────────────────────────────────
+    bb.createBody('box', halfExtent=[0.6,0.04,0.5],  position=[2.0,7.95,1.3],  color='#90CAF9', mass=0)
+    bb.createBody('box', halfExtent=[0.65,0.04,0.55],position=[2.0,7.96,1.3],  color='#777777', mass=0)
+
+    # ── Monstera plant — front-right corner ──────────────────────────────────
+    add_monstera_plant(px=6.0, py=-5.5)
+
+    # ── Touch-sensor pad at entrance ─────────────────────────────────────────
+    bb.createBody('box', halfExtent=[0.15,0.15,0.02], position=[0,-6.5,0.02], color='#00E676', mass=0)
+
+
+# ─── BUILD EVERYTHING ─────────────────────────────────────────────────────────
+setup_hospital_room()
+build_surgery_room()
+
+# ─── DOOR ANIMATION ───────────────────────────────────────────────────────────
+_door_bodies = []
+_door_frac   = 0.0
+_door_state  = 'closed'
+_door_hold   = 0.0
+
+def spawn_door(open_frac=0.0):
+    global _door_bodies
+    for bid in _door_bodies:
+        bb.removeBody(bid)
+    _door_bodies = []
+    W_r=8; DW=0.5; DH=1.0; FH=0.05
+    panel_x = open_frac * (DW * 2)
+    PY = -W_r + 0.05 + 0.01
+    for (he,pos,col) in [
+        ([DW-FH,0.03,DH/2-FH],[panel_x,PY,DH/2],        '#8B4513'),
+        ([DW*0.5,0.04,DH*0.13],[panel_x,PY+0.01,DH*0.74],'#6B3410'),
+        ([DW*0.5,0.04,DH*0.20],[panel_x,PY+0.01,DH*0.27],'#6B3410'),
+    ]:
+        _door_bodies.append(bb.createBody('box', halfExtent=he, position=pos, color=col, mass=0))
+    HX = panel_x + DW*0.48
+    _door_bodies.append(bb.createBody('box',    halfExtent=[0.04,0.01,0.07],  position=[HX,PY-0.01,DH*0.5],  color='#B8860B', mass=0))
+    _door_bodies.append(bb.createBody('box',    halfExtent=[0.09,0.013,0.013],position=[HX+0.05,PY,DH*0.5],  color='#DAA520', mass=0))
+    _door_bodies.append(bb.createBody('sphere', radius=0.025,                 position=[HX+0.15,PY,DH*0.5],  color='#DAA520', mass=0))
+
+
+# ─── VACUUM ROBOT ─────────────────────────────────────────────────────────────
+_vacuum_bodies = []
+
+def spawn_vacuum(cx, cy):
+    global _vacuum_bodies
+    for bid in _vacuum_bodies:
+        bb.removeBody(bid)
+    _vacuum_bodies = []
+    vz = 0.05
+    parts = [
+        ('box',    dict(halfExtent=[0.22,0.22,0.04],  position=[cx,cy,vz],           color='#212121')),
+        ('sphere', dict(radius=0.18,                  position=[cx,cy,vz+0.04],      color='#424242')),
+        ('sphere', dict(radius=0.04,                  position=[cx,cy+0.08,vz+0.18], color='#F44336')),
+        ('box',    dict(halfExtent=[0.06,0.03,0.03],  position=[cx,cy-0.20,vz+0.03], color='#616161')),
+        ('box',    dict(halfExtent=[0.12,0.012,0.008],position=[cx-0.18,cy,vz-0.01], color='#FF9800')),
+        ('box',    dict(halfExtent=[0.12,0.012,0.008],position=[cx+0.18,cy,vz-0.01], color='#FF9800')),
+        ('box',    dict(halfExtent=[0.04,0.08,0.03],  position=[cx-0.16,cy,vz-0.02], color='#37474F')),
+        ('box',    dict(halfExtent=[0.04,0.08,0.03],  position=[cx+0.16,cy,vz-0.02], color='#37474F')),
+    ]
+    for shape,kwargs in parts:
+        _vacuum_bodies.append(bb.createBody(shape, **kwargs, mass=0))
+
+
+# ── Debug sliders ─────────────────────────────────────────────────────────────
+bb.addDebugSlider('door_trigger',  0.0, 0.0, 1.0)
+bb.addDebugSlider('door_open',     0.0, 0.0, 1.0)
+bb.addDebugSlider('vacuum_speed',  1.0, 0.1, 3.0)
+
+spawn_door(0.0)
+
+# ─── MAIN LOOP ────────────────────────────────────────────────────────────────
+ROOM_W=7.2; ROOM_H=7.2; MAX_R=6.5; MIN_R=0.5
+vacuum_angle=0.0; vacuum_radius=1.0; vacuum_dir=1
+
+while True:
+    dt=0.05
+    trigger     = bb.readDebugParameter('door_trigger')
+    door_manual = bb.readDebugParameter('door_open')
+    vspeed      = bb.readDebugParameter('vacuum_speed')
+
+    # ── Door logic ────────────────────────────────────────────────────────────
+    want_open = (trigger > 0.5) or (door_manual > 0.5)
+    if want_open and _door_state in ('closed','closing'):
+        _door_state = 'opening'
+    if want_open and _door_state == 'open':
+        _door_hold = 3.0
+    if _door_state == 'opening':
+        _door_frac = min(1.0, _door_frac + dt*1.5)
+        if _door_frac >= 1.0:
+            _door_state='open'; _door_hold=3.0
+        spawn_door(_door_frac)
+    elif _door_state == 'open':
+        if not want_open:
+            _door_hold -= dt
+            if _door_hold <= 0:
+                _door_state = 'closing'
+    elif _door_state == 'closing':
+        _door_frac = max(0.0, _door_frac - dt*1.2)
+        if _door_frac <= 0.0:
+            _door_state='closed'
+        spawn_door(_door_frac)
+
+    # ── Vacuum spiral patrol ──────────────────────────────────────────────────
+    vacuum_angle  += 0.08 * vspeed
+    vacuum_radius += 0.015 * vspeed * vacuum_dir
+    if vacuum_radius >= MAX_R: vacuum_dir=-1
+    elif vacuum_radius <= MIN_R: vacuum_dir=1
+    vx = max(-ROOM_W+0.3, min(ROOM_W-0.3, vacuum_radius * math.cos(vacuum_angle)))
+    vy = max(-ROOM_H+0.3, min(ROOM_H-0.3, vacuum_radius * math.sin(vacuum_angle)))
+    spawn_vacuum(vx, vy)
+
+    time.sleep(dt)
